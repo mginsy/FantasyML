@@ -9,34 +9,71 @@ import pandas as pd
 
 def getFPStats(driver, link, playerName):
     driver.execute_script("window.open('');")
+    time.sleep(.2)
     driver.close()
+    time.sleep(.2)
     driver.switch_to.window(driver.window_handles[0])
+    time.sleep(2)
     driver.get(link.replace("/players/","/stats/"))
 
-    print(playerName)
-
     playerPosTeamOuter = driver.execute_script("return arguments[0].innerHTML;",driver.find_element(By.XPATH, "//div[@class = 'pull-left primary-heading-subheading']"))
-    playerPosTeam = playerPosTeamOuter[playerPosTeamOuter.index("<h2>")+4:playerPosTeamOuter.index("</h2>")]
+    playerPosTeam = playerPosTeamOuter[playerPosTeamOuter.index("<h2>")+4:playerPosTeamOuter.index("</h2>")].replace(' - <span class="injury">OUT</span>',"")
     playerPos, playerTeam = playerPosTeam.split(" - ")
+
+    if playerPos == "K":
+        return pd.DataFrame({'A' : []}), pd.DataFrame({'A' : []})
 
     bio = driver.find_element(By.XPATH, "//div[@class = 'bio']")
     innerBio = bio.find_elements(By.XPATH, "//div[@class = 'clearfix']")[1]
     details = innerBio.find_elements(By.XPATH, "//span[@class = 'bio-detail']")
+    
+    if len(details) == 0:
+        driver.execute_script("window.open('');")
+        time.sleep(.2)
+        driver.switch_to.window(driver.window_handles[1])
+        time.sleep(2)
+        driver.get(link)
+        bio = driver.find_element(By.XPATH, "//div[@class = 'bio']")
+        innerBio = bio.find_elements(By.XPATH, "//div[@class = 'clearfix']")[1]
+        details = innerBio.find_elements(By.XPATH, "//span[@class = 'bio-detail']")
 
-    for detail in details:
-        detailText = driver.execute_script("return arguments[0].innerHTML;",detail)
-        cat = detailText[detailText.index("<b>")+3:detailText.index("</b>")]
+        for detail in details:
+            detailText = driver.execute_script("return arguments[0].innerHTML;",detail)
+            cat = detailText[detailText.index("<b>")+3:detailText.index("</b>")]
 
-        match cat:
-            case "Height":
-                height = int(detailText[detailText.index(": ")+2:detailText.index("'")])*12 + int(detailText[detailText.index("' ")+2:].replace("\"",""))
-            case "Weight":
-                weight = int(detailText[detailText.index(": ")+2:detailText.index(" lbs")])
-            case "Age":
-                print(detailText)
-                age = int(detailText[detailText.index(": ")+2:].replace("\"",""))
-            case "College":
-                college = detailText[detailText.index(": ")+2:].replace("\"","")
+            match cat:
+                case "Height":
+                    inches = detailText[detailText.index("' ")+2:].replace("\"","")
+                    if inches == "":
+                        inches = "0"
+                    height = int(detailText[detailText.index(": ")+2:detailText.index("'")])*12 + int(inches)
+                case "Weight":
+                    weight = int(detailText[detailText.index(": ")+2:detailText.index(" lbs")])
+                case "Age":
+                    age = int(detailText[detailText.index(": ")+2:].replace("\"",""))
+                case "College":
+                    college = detailText[detailText.index(": ")+2:].replace("\"","")
+
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+
+    else:
+        for detail in details:
+            detailText = driver.execute_script("return arguments[0].innerHTML;",detail)
+            cat = detailText[detailText.index("<b>")+3:detailText.index("</b>")]
+
+            match cat:
+                case "Height":
+                    inches = detailText[detailText.index("' ")+2:].replace("\"","")
+                    if inches == "":
+                        inches = "0"
+                    height = int(detailText[detailText.index(": ")+2:detailText.index("'")])*12 + int(inches)
+                case "Weight":
+                    weight = int(detailText[detailText.index(": ")+2:detailText.index(" lbs")])
+                case "Age":
+                    age = int(detailText[detailText.index(": ")+2:].replace("\"",""))
+                case "College":
+                    college = detailText[detailText.index(": ")+2:].replace("\"","")
 
     tables = driver.find_elements(By.XPATH, "//div[@class = 'mobile-table']")
     stats = []
@@ -83,25 +120,31 @@ def getFPStats(driver, link, playerName):
         seasonDF = seasonDF.reset_index().rename(columns={"index":"Season"})
         seasonDF["Name"] = playerName
         seasonDF["Link"] = link
+        seasonDF["Position"] = playerPos
         stats.append(seasonDF)
 
 
-    totStats = stats[0].merge(stats[1], on=["Season",'Team','Games'], how='left')
-    rookieYear = int(totStats["Season"].min())
-    yearsInNFL = 2023-rookieYear
+    totStats = stats[0].merge(stats[1], on=["Name","Link","Position","Season",'Team','Games'], how='left')
+    positionCol = totStats.pop('Position')
+    totStats.insert(0, 'Position', positionCol)
+    linkCol = totStats.pop('Link')
+    totStats.insert(0, 'Link', linkCol)
+    nameCol = totStats.pop('Name')
+    totStats.insert(0, 'Name', nameCol)
     
-    print(playerName)
-    print(totStats)
+
+
+    rookieYear = int(totStats["Season"].min())
+
     return pd.DataFrame({'Name': playerName,
                            'Link': link,
                            'Position': playerPos,
                            'Rookie Year': rookieYear,
-                           'Current Years in NFL': yearsInNFL,
                            'Age': age,
                            'Height (in)': height,
                            'Weight (lbs)': weight,
                            'College': college
-                           }), totStats
+                           }, index=[0]), totStats
     
 
 
