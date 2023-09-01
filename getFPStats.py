@@ -15,10 +15,11 @@ def getFPStats(driver, link, playerName):
     driver.switch_to.window(driver.window_handles[0])
     time.sleep(2)
     driver.get(link.replace("/players/","/stats/"))
-
+    
     playerPosTeamOuter = driver.execute_script("return arguments[0].innerHTML;",driver.find_element(By.XPATH, "//div[@class = 'pull-left primary-heading-subheading']"))
-    playerPosTeam = playerPosTeamOuter[playerPosTeamOuter.index("<h2>")+4:playerPosTeamOuter.index("</h2>")].replace(' - <span class="injury">OUT</span>',"")
-    playerPos, playerTeam = playerPosTeam.split(" - ")
+    playerPosTeamArray = playerPosTeamOuter[playerPosTeamOuter.index("<h2>")+4:playerPosTeamOuter.index("</h2>")].split(" - ")
+    playerPos = playerPosTeamArray[0]
+    playerTeam = playerPosTeamArray[1]
 
     if playerPos == "K":
         return pd.DataFrame({'A' : []}), pd.DataFrame({'A' : []})
@@ -143,7 +144,8 @@ def getFPStats(driver, link, playerName):
                            'Age': age,
                            'Height (in)': height,
                            'Weight (lbs)': weight,
-                           'College': college
+                           'College': college,
+                           'Current Team': playerTeam
                            }, index=[0]), totStats
     
 

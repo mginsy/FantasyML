@@ -27,7 +27,7 @@ for year in years:
     link = years[year]
     FPDF = getFPRankings(driver, link, int(year))
     print(FPDF)
-    FPDF.to_excel(f"FPDF{str(year)}.xlsx",index=False)
+    FPDF.to_excel(f"FantasyRankings/FPDF{str(year)}.xlsx",index=False)
 
 driver.close()
 
